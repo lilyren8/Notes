@@ -148,6 +148,7 @@ FROM left AS l
 JOIN right AS r ON l.id = r.id
 ;
 
+
 -- outer join, include everything from the left table
 SELECT l.description AS left, r.description AS right
 FROM left AS l
