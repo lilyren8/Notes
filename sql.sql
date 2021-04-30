@@ -148,9 +148,138 @@ FROM left AS l
 JOIN right AS r ON l.id = r.id
 ;
 
-
 -- outer join, include everything from the left table
 SELECT l.description AS left, r.description AS right
 FROM left AS l
 LEFT JOIN right AS r ON l.id = r.id
 ;
+
+---------------------------------string-------------------------------------
+
+SELECT LENGTH('AA');
+
+--show the numbers of character in Name, orderd by length then name.
+SELECT Name, LENGTH(Name) AS Len FROM City ORDER BY Len DESC, Name;
+
+--substring. get everything in the string from the starting position to the end
+SELECT SUBSTR('this string', 6);
+
+--substring. just get 3 characters 
+SELECT SUBSTR('this string', 6, 3);
+
+--parse out packed data. for example, yyyy-mm-dd to year, month and day
+SELECT released,
+SUBSTR(released, 1, 4) AS year,
+SUBSTR(released, 6, 2) AS month,
+SUBSTR(released, 9, 2) AS day
+FROM album ORDER BY released
+;
+
+--remove spaces from string, useful for processing user input
+SELECT TRIM('     string    ');
+
+--remove spaces from left
+SELECT LTRIM('     string    ');
+
+--remove spaces from right
+SELECT RTRIM('     string    ');
+
+-- remove period
+SELECT TRIM('....string..', '.');
+SELECT LTRIM('....string..', '.');
+
+--the 2 strings are not equal
+SELECT 'STRing' = 'string';
+
+--convert to all lower case
+SELECT LOWER('STRing') = 'string';
+
+--normalize the case in a column,  cannot acent characters in SQLite
+SELECT UPPER(Name) FROM City ORDER BY Name;
+
+---------------------------------numbers-------------------------------------
+--single number is integer
+SELECT TYPEOF( 1+1 );
+
+--decimal point is real number
+SELECT TYPEOF( 1+1.0 );
+
+--the type is integer
+SELECT TYPEOF('panda'+'panda');
+
+--the result 0 is an integer,.5 is not integer
+SELECT 1 / 2;
+SELECT CAST(1 AS REAL) / 2;
+
+--round 
+SELECT ROUND(2.4444);
+
+--round to 3 decimal spaces
+SELECT ROUND(2.44444, 3);
+
+---------------------------------dates and time-------------------------------------
+
+--return time stand in UTC 
+SELECT DATETIME('now');
+SELECT DATE('now');
+
+--add argument to change date time
+SELECT DATETIME('now', '+3 hours', '-1 day');
+
+---------------------------------aggregates-------------------------------------
+
+--GROUP BY groups results before calling the aggregate function
+SELECT Region, COUNT(*) AS Count
+FROM Country
+GROUP BY Region
+ORDER BY Count DESC, Region
+;
+
+--the number of tracks for each album, HAVING is for aggregate data, WHERE is for non-aggregate data
+SELECT a.title AS album, COUNT(t.track_number) AS tracks
+FROM album AS a
+JOIN track AS t
+ON a.id = t.album_id
+--WHERE needs to be before group by
+WHERE a.artist = 'The beatles'
+GROUP BY a.id
+HAVING Tracks >= 10
+ORDER BY tracks, album
+;
+
+--COUNT(*) count the number of rows. COUNT(column) count all non-null values
+SELECT COUNT(Population) FROM Country;
+
+--AVG, SUM, MIN
+SELECT SUM(Population) FROM Country;
+SELECT AVG(Population) FROM Country;
+
+--count distinct
+SELECT COUNT(DISTINCT HeadOfState) FROM Country;
+
+---------------------------------trigger-------------------------------------
+--automating data: update table when another table is updated
+
+--prevent items to be modified
+CREATE TRIGGER updateWidgetSale BEFORE UPDATE ON widgetSale
+BEGIN
+SELECT RAISE(ROLLBACK, 'cannot update table "widgetSale"') FROM widgetSale
+WHERE id = NEW.id AND reconciled = 1;
+end
+;
+
+--rollback the transaction
+BEGIN TRANSACTION;
+UPDATE widgetSale SET quan = 8 WHERE id = 2;
+END TRANSACTION;
+
+
+---------------------------------view-------------------------------------
+
+--create a view, use view as you would use a table in a join
+CREATE VIEW trackView AS
+SELECT id, album_id, title, duration / 60 AS m, duration % 60 AS s FROM track ORDER BY title; 
+SELECT * FROM trackView;
+
+--delete
+DROP VIEW IF EXISTS trackView;
