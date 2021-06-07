@@ -283,3 +283,17 @@ SELECT * FROM trackView;
 
 --delete
 DROP VIEW IF EXISTS trackView;
+
+---------------------------------subquery-------------------------------------
+--first create an aggregation, then add another aggregation on top of that
+SELECT var_name
+FROM (
+    --subquery
+) AS table_name
+
+-- use subquery to test if value is in another table. useful when table is in another database/join is not possible
+SELECT var_name
+FROM table_name
+WHERE var_name IN (
+    --subquery
+)

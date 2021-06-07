@@ -1,0 +1,11 @@
+Excel pivot table prep steps:
+ - Remove empty rows/columns
+ - have each columns named
+ - turn data into excel table
+    1. select any value
+    2. cmd + T 
+    3. press enter
+
+field means column
+
+To update pivot table, right click the pivot table and click refresh
