@@ -176,3 +176,103 @@ COUNT(CASE WHEN pageview_url = '/lander-1' THEN website_session_id ELSE NULL END
 FROM landing_page_W_page_name_and_created_at
 
 GROUP BY YEARWEEK(created_at);
+
+-- conversion funnel analysis: what persentage of users move on to the next step
+-- clickthrough rate
+-- subquery: 
+-- must be a complete query on its own
+-- must give it  an alias
+-- an be hard to follow for multi-step analyses
+-- select all pageviews
+
+SELECT p.website_session_id AS website_session_id, 
+website_pageview_id, 
+pageview_url,
+CASE WHEN pageview_url = '/products' THEN 1 ELSE 0 END AS to_products,
+CASE WHEN pageview_url = '/the-original-mr-fuzzy' THEN 1 ELSE 0 END AS to_mrfuzzy,
+CASE WHEN pageview_url = '/cart' THEN 1 ELSE 0 END AS to_cart,
+CASE WHEN pageview_url = '/shipping' THEN 1 ELSE 0 END AS to_shipping,
+CASE WHEN pageview_url = '/billing' THEN 1 ELSE 0 END AS to_billing,
+CASE WHEN pageview_url = '/thank-you-for-your-order' THEN 1 ELSE 0 END AS to_thankyou
+FROM website_pageviews p
+JOIN website_sessions s
+ON p.website_session_id = s.website_session_id
+WHERE p.created_at < '2012-09-05' AND p.created_at > '2012-08-05' 
+AND utm_source = 'gsearch' AND utm_campaign = 'nonbrand'
+ORDER BY p.website_session_id, p.created_at;
+
+-- create session level conversion funnel view
+CREATE TEMPORARY TABLE page_made_to
+SELECT website_session_id,
+MAX(to_products) AS products_made_to,
+MAX(to_mrfuzzy) AS mrfuzzy_made_to,
+MAX(to_cart) AS cart_made_to,
+MAX(to_shipping) AS shipping_made_to,
+MAX(to_billing) AS billing_made_to,
+MAX(to_thankyou) AS thankyou_made_to
+FROM (
+SELECT p.website_session_id AS website_session_id, 
+website_pageview_id, 
+pageview_url,
+CASE WHEN pageview_url = '/products' THEN 1 ELSE 0 END AS to_products,
+CASE WHEN pageview_url = '/the-original-mr-fuzzy' THEN 1 ELSE 0 END AS to_mrfuzzy,
+CASE WHEN pageview_url = '/cart' THEN 1 ELSE 0 END AS to_cart,
+CASE WHEN pageview_url = '/shipping' THEN 1 ELSE 0 END AS to_shipping,
+CASE WHEN pageview_url = '/billing' THEN 1 ELSE 0 END AS to_billing,
+CASE WHEN pageview_url = '/thank-you-for-your-order' THEN 1 ELSE 0 END AS to_thankyou
+FROM website_pageviews p
+JOIN website_sessions s
+ON p.website_session_id = s.website_session_id
+WHERE p.created_at < '2012-09-05' AND p.created_at > '2012-08-05' 
+AND utm_source = 'gsearch' 
+AND pageview_url IN ('/lander-1','/products', '/the-original-mr-fuzzy', '/cart', '/shipping', '/billing', '/thank-you-for-your-order')
+ORDER BY p.website_session_id, p.created_at
+) AS page_level
+GROUP BY website_session_id;
+
+-- aggregate data to assess funnel performance
+-- total clicks
+SELECT COUNT(website_session_id) AS sessions,
+SUM(products_made_to) AS to_products,
+SUM(mrfuzzy_made_to) AS to_mr_fuzzy,
+SUM(cart_made_to) AS to_cart,
+SUM(shipping_made_to) AS to_shipping,
+SUM(billing_made_to) AS to_billing,
+SUM(thankyou_made_to) AS to_thankyou
+FROM page_made_to;
+-- clickthrough rate
+SELECT SUM(products_made_to)/COUNT(website_session_id) AS lander_click_rt,
+SUM(mrfuzzy_made_to)/SUM(products_made_to) AS products_click_rt,
+SUM(cart_made_to)/SUM(mrfuzzy_made_to) AS mr_fuzzy_rt,
+SUM(shipping_made_to)/SUM(cart_made_to) AS cart_click_rt,
+SUM(billing_made_to)/SUM(shipping_made_to) AS shipping_click_rt,
+SUM(thankyou_made_to)/SUM(billing_made_to) AS billing_click_rt
+FROM page_made_to;
+
+-- conclusion: lander, mrfuzzy, and billing has the lowest click rate
+
+-- find the first time /billing-2 was seen
+SELECT created_at, pageview_url
+FROM website_pageviews
+WHERE pageview_url = '/billing-2'
+ORDER BY created_at LIMIT 1;
+-- first seen time stamp 2012-09-10 01:13:05
+
+-- conversion funnel analysis
+-- flag pageview
+SELECT
+pageview_url,
+COUNT(website_session_id) AS sessions,
+COUNT(order_id) AS orders,
+COUNT(order_id)/COUNT(website_session_id) AS bulling_to_order_rt
+FROM (
+SELECT p.website_session_id AS website_session_id, 
+pageview_url,order_id
+FROM website_pageviews p
+LEFT JOIN orders o
+ON p.website_session_id = o.website_session_id
+WHERE p.created_at < '2012-11-10' AND p.created_at > '2012-09-10' AND pageview_url IN ('/billing', '/billing-2')
+ORDER BY p.website_session_id, p.created_at
+) AS session_w_order
+GROUP BY pageview_url;
+-- conclusion: the new /billing-2 page is doing a better job converting customers. Roll out the new version to 100% traffic.
