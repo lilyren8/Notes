@@ -276,3 +276,32 @@ ORDER BY p.website_session_id, p.created_at
 ) AS session_w_order
 GROUP BY pageview_url;
 -- conclusion: the new /billing-2 page is doing a better job converting customers. Roll out the new version to 100% traffic.
+
+-- pull monthly trends for gsearch sessions and orders
+SELECT YEAR(s.created_at) AS years, 
+MONTH(s.created_at) AS months, 
+COUNT(s.website_session_id) AS sessions, 
+COUNT(order_id) AS orders
+FROM website_sessions s
+LEFT JOIN orders o
+ON s.website_session_id = o.website_session_id
+WHERE s.created_at < '2012-11-27' AND utm_source = 'gsearch' 
+GROUP BY 1,2;
+-- conclusion: see substantial growth for sessions and orders.
+
+-- dive into gsearch nonbrand, and pull month sessions and orders split by device type
+SELECT YEAR(s.created_at) AS years, 
+MONTH(s.created_at) AS months, 
+COUNT(CASE WHEN device_type = 'desktop' THEN s.website_session_id ELSE NULL END) AS desktop_sessions, 
+COUNT(CASE WHEN device_type = 'mobile' THEN s.website_session_id ELSE NULL END) AS mobile_sessions,
+COUNT(CASE WHEN device_type = 'desktop' THEN order_id ELSE NULL END) AS desktop_orders,
+COUNT(CASE WHEN device_type = 'mobile' THEN order_id ELSE NULL END) AS mobile_orders
+
+FROM website_sessions s
+LEFT JOIN orders o
+ON s.website_session_id = o.website_session_id
+WHERE s.created_at < '2012-11-27' AND utm_source = 'gsearch' AND utm_campaign = 'nonbrand'
+GROUP BY 1,2;
+-- conclusion: desktop to mobile ratio increased from around 5:1 to 10:1
+
+
