@@ -304,4 +304,14 @@ WHERE s.created_at < '2012-11-27' AND utm_source = 'gsearch' AND utm_campaign = 
 GROUP BY 1,2;
 -- conclusion: desktop to mobile ratio increased from around 5:1 to 10:1
 
+-- session to order conversion rate by month
+SELECT YEAR(s.created_at) AS year, MONTH(s.created_at) AS month, COUNT(order_id)/COUNT(s.website_session_id) AS conversion_rate
+FROM website_sessions s
+LEFT JOIN orders o
+ON s.website_session_id = o.website_session_id
+WHERE s.created_at < '2012-11-27'
+GROUP BY 1,2;
+-- conclusion: session to order conversion rate increased from 3% to 4%
+
+-- estimate the revenue the gsearch lander test earned
 
