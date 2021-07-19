@@ -313,5 +313,49 @@ WHERE s.created_at < '2012-11-27'
 GROUP BY 1,2;
 -- conclusion: session to order conversion rate increased from 3% to 4%
 
--- estimate the revenue the gsearch lander test earned
+-- show a full conversion funnel from each of the two pages (home & lander-1) to orders
+CREATE TEMPORARY TABLE page_made_to
+SELECT website_session_id,
+MAX(lander1) AS lander1_made_to,
+MAX(home) AS home_made_to,
+MAX(products) AS products_made_to,
+MAX(mrfuzzy) AS mrfuzzy_made_to,
+MAX(cart) AS cart_made_to,
+MAX(shipping) AS shipping_made_to,
+MAX(billing) AS billing_made_to,
+MAX(thankyou) AS thankyou_made_to
+FROM (
+SELECT p.website_session_id AS website_session_id, 
+pageview_url,
+CASE WHEN pageview_url = '/lander-1' THEN 1 ELSE 0 END AS lander1,
+CASE WHEN pageview_url = '/home' THEN 1 ELSE 0 END AS home,
+CASE WHEN pageview_url = '/products' THEN 1 ELSE 0 END AS products,
+CASE WHEN pageview_url = '/the-original-mr-fuzzy' THEN 1 ELSE 0 END AS mrfuzzy,
+CASE WHEN pageview_url = '/cart' THEN 1 ELSE 0 END AS cart,
+CASE WHEN pageview_url = '/shipping' THEN 1 ELSE 0 END AS shipping,
+CASE WHEN pageview_url = '/billing' THEN 1 ELSE 0 END AS billing,
+CASE WHEN pageview_url = '/thank-you-for-your-order' THEN 1 ELSE 0 END AS thankyou
+FROM website_pageviews p
+JOIN website_sessions s
+ON p.website_session_id = s.website_session_id
+WHERE p.created_at > '2012-06-19' AND p.created_at < '2012-07-28'
+AND utm_source = 'gsearch' 
+AND utm_campaign = 'nonbrand' 
+ORDER BY p.website_session_id, p.created_at
+) AS page_level
+GROUP BY website_session_id;
 
+SELECT 
+CASE 
+WHEN home_made_to = 1 THEN 'saw_home'
+WHEN lander1_made_to = 1 THEN 'saw_lander1'
+ELSE NULL END AS segment,
+COUNT(website_session_id) AS sessions,
+SUM(products_made_to) AS to_products,
+SUM(mrfuzzy_made_to) AS to_mr_fuzzy,
+SUM(cart_made_to) AS to_cart,
+SUM(shipping_made_to) AS to_shipping,
+SUM(billing_made_to) AS to_billing,
+SUM(thankyou_made_to) AS to_thankyou
+FROM page_made_to
+GROUP BY 1;
