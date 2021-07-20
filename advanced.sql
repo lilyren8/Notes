@@ -359,3 +359,13 @@ SUM(billing_made_to) AS to_billing,
 SUM(thankyou_made_to) AS to_thankyou
 FROM page_made_to
 GROUP BY 1;
+
+-- quantify the impact of the new billing page (/billing-2) in terms of revenue per billing page session
+SELECT pageview_url, COUNT(p.website_session_id) AS sessions,
+SUM(price_usd)/COUNT(p.website_session_id) AS revenue_per_billing_page
+FROM website_pageviews p
+LEFT JOIN orders o
+ON p.website_session_id = o.website_session_id
+WHERE p.created_at < '2012-11-10' AND p.created_at > '2012-09-10' AND pageview_url IN ('/billing', '/billing-2')
+GROUP BY 1;
+-- conclusion: major lift in revenue coming from billing-2
