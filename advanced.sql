@@ -369,3 +369,25 @@ ON p.website_session_id = o.website_session_id
 WHERE p.created_at < '2012-11-10' AND p.created_at > '2012-09-10' AND pageview_url IN ('/billing', '/billing-2')
 GROUP BY 1;
 -- conclusion: major lift in revenue coming from billing-2
+
+-- channel portfolio optimization
+-- analyze the porformace of expanded channel bsearch
+SELECT MIN(DATE(created_at)),
+COUNT(CASE WHEN utm_source = 'gsearch' THEN website_session_id ELSE NULL END) AS gsearch_sessions,
+COUNT(CASE WHEN utm_source = 'bsearch' THEN website_session_id ELSE NULL END) AS bsearch_sessions
+
+FROM website_sessions
+
+WHERE created_at < '2012-11-29' AND created_at > '2012-08-22' AND utm_campaign = 'nonbrand'
+GROUP BY WEEK(created_at);
+-- conclusion: bsearch tends to get a thrid the traffic of gsearch
+
+-- compaing the gsearch and bsearch channels
+SELECT utm_source,
+COUNT(website_session_id) AS sessions,
+COUNT(CASE WHEN device_type = 'mobile' THEN website_session_id ELSE NULL END) AS mobile_sessions,
+COUNT(CASE WHEN device_type = 'mobile' THEN website_session_id ELSE NULL END)/COUNT(website_session_id) AS percent_mobile
+FROM website_sessions
+WHERE created_at < '2012-11-30' AND created_at > '2012-08-22' AND utm_campaign = 'nonbrand'
+GROUP BY utm_source;
+-- conclusion: the channels are quite differnt from a device standpoint
