@@ -391,3 +391,19 @@ FROM website_sessions
 WHERE created_at < '2012-11-30' AND created_at > '2012-08-22' AND utm_campaign = 'nonbrand'
 GROUP BY utm_source;
 -- conclusion: the channels are quite differnt from a device standpoint
+
+-- multi-channel bidding for desktop and mobile
+SELECT device_type, utm_source,
+COUNT(s.website_session_id) AS sessions,
+COUNT(order_id) AS orders,
+COUNT(order_id)/COUNT(s.website_session_id) AS conv_rate
+FROM website_sessions s
+LEFT JOIN orders o
+ON s.website_session_id = o.website_session_id
+WHERE s.created_at > '2012-08-22' AND s.created_at < '2012-09-18' AND utm_campaign = 'nonbrand'
+GROUP BY 1,2;
+-- conclusion: bid down bsearch based on its under-performance
+
+-- non-paid traffic: organic search, direct type in
+-- the utm parameters are null
+-- if http_referer is null, we can call it direct type in. if not null, we call it organic search
