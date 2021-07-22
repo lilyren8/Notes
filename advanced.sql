@@ -407,3 +407,22 @@ GROUP BY 1,2;
 -- non-paid traffic: organic search, direct type in
 -- the utm parameters are null
 -- if http_referer is null, we can call it direct type in. if not null, we call it organic search
+
+-- pull organic search, drect type in, and paid brand search sessions by month
+SELECT YEAR(created_at), MONTH(created_at),
+COUNT(CASE WHEN utm_campaign = 'nonbrand' THEN website_session_id ELSE NULL END) AS nonbrand,
+COUNT(CASE WHEN utm_campaign = 'brand' THEN website_session_id ELSE NULL END) AS brand,
+COUNT(CASE WHEN utm_campaign = 'brand' THEN website_session_id ELSE NULL END)/
+COUNT(CASE WHEN utm_campaign = 'nonbrand' THEN website_session_id ELSE NULL END) AS brand_pct,
+COUNT(CASE WHEN http_referer IS NULL THEN website_session_id ELSE NULL END) AS direct,
+COUNT(CASE WHEN http_referer IS NULL THEN website_session_id ELSE NULL END)/
+COUNT(CASE WHEN utm_campaign = 'nonbrand' THEN website_session_id ELSE NULL END) AS direct_pct,
+COUNT(CASE WHEN utm_source IS NULL AND http_referer IS NOT NULL THEN website_session_id ELSE NULL END) AS organic,
+COUNT(CASE WHEN utm_source IS NULL AND http_referer IS NOT NULL THEN website_session_id ELSE NULL END)/
+COUNT(CASE WHEN utm_campaign = 'nonbrand' THEN website_session_id ELSE NULL END) AS organic_pct
+FROM website_sessions
+WHERE created_at < '2012-12-23'
+GROUP BY 1,2;
+--conclusion: direct and organic search is picking up and growing faster than nonbrand(which is paid)
+
+-- WEEKDAY(var) 0 = Mon, 1 = Tue, etc
