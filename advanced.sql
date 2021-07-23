@@ -426,3 +426,13 @@ GROUP BY 1,2;
 --conclusion: direct and organic search is picking up and growing faster than nonbrand(which is paid)
 
 -- WEEKDAY(var) 0 = Mon, 1 = Tue, etc
+
+-- pull the monthly sales trends
+SELECT YEAR(created_at), MONTH(created_at),
+COUNT(order_id) AS number_of_sales,
+SUM(price_usd) AS total_revenue,
+SUM(price_usd - cogs_usd) AS total_margin
+FROM orders
+WHERE created_at < '2013-01-04'
+GROUP BY 1,2;
+-- conclusion: see a growth pattern for sales, revenue and margin
