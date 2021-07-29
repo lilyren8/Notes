@@ -436,3 +436,135 @@ FROM orders
 WHERE created_at < '2013-01-04'
 GROUP BY 1,2;
 -- conclusion: see a growth pattern for sales, revenue and margin
+
+
+-- product-level conversion funnel
+DROP TABLE IF EXISTS session_level;
+DROP TABLE IF EXISTS product_seen;
+
+-- select all relevant pages
+CREATE TEMPORARY TABLE product_seen
+SELECT website_session_id, website_pageview_id, pageview_url
+FROM website_pageviews
+WHERE created_at > '2013-01-06' AND created_at < '2013-04-10' AND pageview_url 
+IN ('/the-original-mr-fuzzy', '/the-forever-love-bear');
+
+-- find what pageview_url to look for
+SELECT DISTINCT s.pageview_url
+FROM product_seen s
+LEFT JOIN website_pageviews p
+ON s.website_session_id = p.website_session_id AND s.website_pageview_id < p.website_pageview_id;
+
+-- flag pages to identify funnel steps
+-- create session leve conversion funnel view
+CREATE TEMPORARY TABLE session_level
+SELECT website_session_id,
+CASE 
+WHEN pageview_url = '/the-original-mr-fuzzy' THEN 'mrfuzzy'
+WHEN pageview_url = '/the-forever-love-bear' THEN 'bear'
+ELSE NULL END AS product_seen, MAX(cart) AS to_cart, MAX(shipping) AS to_shipping, MAX(billing) AS to_billing, MAX(thankyou) AS to_ty
+FROM (
+SELECT s.website_session_id, 
+s.pageview_url,
+CASE WHEN s.pageview_url = '/cart' THEN 1 ELSE 0 END AS cart,
+CASE WHEN s.pageview_url = '/shipping' THEN 1 ELSE 0 END AS shipping,
+CASE WHEN s.pageview_url = '/billing-2' THEN 1 ELSE 0 END AS billing,
+CASE WHEN s.pageview_url = '/thank-you-for-your-order' THEN 1 ELSE 0 END AS thankyou
+FROM product_seen s
+LEFT JOIN website_pageviews p
+ON s.website_session_id = p.website_session_id AND s.website_pageview_id < p.website_pageview_id
+) AS page_level
+GROUP BY website_session_id,
+CASE 
+WHEN pageview_url = '/the-original-mr-fuzzy' THEN 'mrfuzzy'
+WHEN pageview_url = '/the-forever-love-bear' THEN 'bear'
+ELSE NULL END;
+
+-- aggregate the data to assess funnel performance
+SELECT product_seen, COUNT(website_session_id) AS sessions,
+SUM(to_cart) AS cart, COUNT(case when to_shipping = 1 THEN website_session_id ELSE NULL END) AS shipping -- incomplete funnel
+FROM session_level
+GROUP BY product_seen;
+
+
+-- cross-sell: iterms_purchased is greater than 1
+-- cart clickthrough rate: number of pages click to another page/total cart session
+-- compare the month before vs the month after the option to add 2nd product to cart
+=================================================
+-- identify the pageviews within the time period
+DROP TABLE IF EXISTS cart_page;
+CREATE TEMPORARY TABLE cart_page
+SELECT 
+CASE 
+WHEN created_at > '2013-09-25' THEN 'b.post_cross_sell'
+WHEN created_at < '2013-09-25' THEN 'a.pre_cross_sell'
+ELSE NULL END AS time_period,
+website_session_id, website_pageview_id
+FROM website_pageviews
+WHERE created_at  BETWEEN '2013-08-25' AND '2013-10-25' AND pageview_url = '/cart';
+
+-- identify pagevies after cart
+DROP TABLE IF EXISTS through_cart;
+-- CREATE TEMPORARY TABLE through_cart
+SELECT time_period, c.website_session_id AS website_session_id, MIN(c.website_pageview_id) AS pv_id_through_cart
+FROM cart_page c
+LEFT JOIN website_pageviews p
+ON c.website_session_id = p.website_session_id AND c.website_pageview_id < p.website_pageview_id
+GROUP BY 1,2;
+
+-- products per order, average order value: group by session
+SELECT c.time_period, c.website_session_id AS website_session_id, pv_id_through_cart, items_purchased, price_usd
+FROM cart_page c
+LEFT JOIN through_cart t
+ON c.website_session_id = t.website_session_id
+LEFT JOIN orders o
+ON c.website_session_id = o.website_session_id;
+-- group by time_period
+=========================================================
+-- DATEDIFF(secondDate, firstDate): list the more recent date first
+-- pull how many visitors comback for another session
+DROP TABLE IF EXISTS repeat_session;
+CREATE TEMPORARY TABLE repeat_session
+SELECT new_session.user_id, w.website_session_id AS repeat_session
+FROM (
+SELECT website_session_id, user_id
+FROM website_sessions
+WHERE created_at BETWEEN '2014-01-01' AND '2014-11-01' AND is_repeat_session = 0
+) AS new_session
+LEFT JOIN website_sessions w
+ON new_session.user_id = w.user_id AND new_session.website_session_id < w.website_session_id
+AND created_at BETWEEN '2014-01-01' AND '2014-11-01';
+
+SELECT repeat_session, COUNT(user_id) AS users
+FROM (
+SELECT user_id, COUNT(repeat_session) AS repeat_session
+FROM repeat_session
+GROUP BY user_id
+) AS session_count
+GROUP BY 1
+ORDER BY 1;
+
+-- min, max and avg time between 1st and 2nd session
+DROP TABLE IF EXISTS repeat_session;
+CREATE TEMPORARY TABLE repeat_session
+SELECT new_session.user_id, new_session.website_session_id AS new_session, 
+new_session.created_at AS first_session_on,
+w.website_session_id AS repeat_session,
+w.created_at AS repeat_session_on
+FROM (
+SELECT website_session_id, user_id, created_at
+FROM website_sessions
+WHERE created_at BETWEEN '2014-01-01' AND '2014-11-03' AND is_repeat_session = 0
+) AS new_session
+JOIN website_sessions w
+ON new_session.user_id = w.user_id AND new_session.website_session_id < w.website_session_id
+AND w.created_at BETWEEN '2014-01-01' AND '2014-11-03';
+
+SELECT AVG(DATEDIFF(second_session_on, first_session_on)) AS avg, 
+MIN(DATEDIFF(second_session_on, first_session_on)) AS min,
+MAX(DATEDIFF(second_session_on, first_session_on)) AS max
+FROM(
+SELECT first_session_on, MIN(repeat_session_on) AS second_session_on
+FROM repeat_session
+GROUP BY 1
+) AS session_date;
